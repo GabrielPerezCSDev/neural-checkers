@@ -99,28 +99,20 @@ public class GameServer {
     gameServer.createContext(
       "/",
       exchange -> {
-        // Add CORS headers first
-        exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
-        exchange
-          .getResponseHeaders()
-          .add(
-            "Access-Control-Allow-Methods",
-            "GET, POST, PUT, DELETE, OPTIONS"
-          );
-        exchange
-          .getResponseHeaders()
-          .add("Access-Control-Allow-Headers", "Content-Type,Authorization");
+        
+        setCORSHeaders(exchange);
 
         // Handle OPTIONS request (preflight)
         if (exchange.getRequestMethod().equals("OPTIONS")) {
           exchange.sendResponseHeaders(200, -1);
           return;
         }
-
+        /* 
         if (!exchange.getRequestMethod().equals("PUT")) {
           HttpUtils.sendResponse(exchange, 405, "Method not allowed");
           return;
         }
+          */
 
         // Get connection details
         try {
@@ -674,6 +666,11 @@ public class GameServer {
     );
   }
 
+  private void setCORSHeaders(HttpExchange exchange) {
+    exchange.getResponseHeaders().add("Access-Control-Allow-Origin", "*");
+    exchange.getResponseHeaders().add("Access-Control-Allow-Methods", "GET, POST, PUT, DELETE, OPTIONS");
+    exchange.getResponseHeaders().add("Access-Control-Allow-Headers", "Content-Type,Authorization");
+  }
   public void stopServer() {
     if (gameServer != null) {
       gameServer.stop(0); // 0 means stop immediately

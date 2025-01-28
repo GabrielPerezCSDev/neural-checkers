@@ -1,7 +1,7 @@
 # Neural Checkers: A Monte Carlo Tree Search Implementation
 
 ## Overview
-Neural Checkers is a backend implementation of the classic board game Checkers featuring an AI opponent powered by Monte Carlo Tree Search (MCTS). This repository contains the server-side code, providing game logic and AI functionality. The frontend implementation is integrated into my portfolio website, where you can try the live demo.
+Neural Checkers is a full-stack implementation of the classic board game Checkers featuring an AI opponent powered by Monte Carlo Tree Search (MCTS). This repository contains the server-side code, including a custom HTTP server implementation with thread-per-user architecture, providing game logic and AI functionality, deployed with HTTPS support on a custom domain. The frontend implementation is integrated into my portfolio website, where you can try the live demo.
 
 ## Live Demo
 You can experience the full application at my portfolio website:
@@ -22,6 +22,15 @@ You can experience the full application at my portfolio website:
 - Thread management for game sessions
 - RESTful API endpoints
 - Monte Carlo Tree Search implementation
+- Nginx reverse proxy
+- SSL/HTTPS via Let's Encrypt
+
+### Deployment
+- Google Cloud f1-micro instance
+- Custom domain (neural-checkers.xyz)
+- HTTPS encryption
+- Nginx reverse proxy
+- Automated SSL certificate management
 
 ### Frontend (Available in Portfolio)
 - React + TypeScript
@@ -29,7 +38,28 @@ You can experience the full application at my portfolio website:
 - Real-time game state updates
 - Cyberpunk-themed UI
 
+## Infrastructure
+### Production Environment
+- Domain: neural-checkers.xyz
+- Backend: Google Cloud f1-micro instance
+- Frontend: GitHub Pages
+- SSL: Let's Encrypt certificates
+- Proxy: Nginx reverse proxy
+
+### Performance Note
+The backend runs on a Google Cloud f1-micro instance with limited computing power. AI moves may take longer to process due to these hardware constraints.
+
 ## Key Components
+
+### HTTP Server Implementation
+- Custom HTTP server built from scratch using Java
+- Thread-per-user architecture for concurrent game sessions
+- Connection ID based authentication and session management
+- Request routing and thread mapping
+- RESTful API endpoint handling
+- Request/response parsing and formatting
+- Error handling and status code management
+
 ### AI Implementation
 - Monte Carlo Tree Search algorithm
 - Node expansion and backpropagation
@@ -130,7 +160,43 @@ fi
 echo "Running the program..."
 java -cp "$BIN" main.Main
 ```
+# Production Setup
 
+## Domain & SSL
+- Production domain: `neural-checkers.xyz`
+- SSL certification through Let's Encrypt
+- HTTPS enforced for all connections
+
+## Infrastructure
+- Frontend: GitHub Pages
+- Backend: Google Cloud f1-micro instance
+- Nginx reverse proxy handling HTTPS and routing
+
+## Nginx Configuration
+```nginx
+server {
+    listen 443 ssl;
+    server_name neural-checkers.xyz;
+
+    ssl_certificate /etc/letsencrypt/live/neural-checkers.xyz/fullchain.pem;
+    ssl_certificate_key /etc/letsencrypt/live/neural-checkers.xyz/privkey.pem;
+
+    location / {
+        proxy_pass http://localhost:10000;
+        proxy_http_version 1.1;
+        proxy_set_header Upgrade $http_upgrade;
+        proxy_set_header Connection 'upgrade';
+        proxy_set_header Host $host;
+        proxy_cache_bypass $http_upgrade;
+    }
+}
+
+server {
+    listen 80;
+    server_name neural-checkers.xyz;
+    return 301 https://$server_name$request_uri;
+}
+```
 
 ## API Endpoints
 - `PUT /` - Establish connection

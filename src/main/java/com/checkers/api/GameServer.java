@@ -2,38 +2,100 @@ package main.java.com.checkers.api;
 
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import com.sun.net.httpserver.HttpsConfigurator;
+import com.sun.net.httpserver.HttpsParameters;
+import com.sun.net.httpserver.HttpsServer;
+import java.io.FileInputStream;
 import java.io.IOException;
 import java.io.InputStream;
 import java.io.OutputStream;
 import java.net.InetSocketAddress;
+import java.security.KeyManagementException;
+import java.security.KeyStore;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.UUID;
 import java.util.concurrent.ConcurrentHashMap;
+import javax.net.ssl.KeyManagerFactory;
+import javax.net.ssl.SSLContext;
+import javax.net.ssl.SSLEngine;
 import main.java.com.checkers.util.GameResponse;
 import main.java.com.checkers.util.GameResponseUtil;
 
 public class GameServer {
 
-  private HttpServer gameServer;
+  private HttpsServer gameServer;
   private final int port;
   private final String host;
+  private final String keystorePath;
+  private final String keystorePassword;
   Map<String, GameThread> gameThreads = new ConcurrentHashMap<>();
 
-  public GameServer(String host, int port) {
+  public GameServer(String host, int port, String keystorePath, String keystorePassword) {
     this.host = host;
     this.port = port;
+    this.keystorePath = keystorePath;
+    this.keystorePassword = keystorePassword;
 }
 
   String generateConnectionId() {
     return UUID.randomUUID().toString().substring(0, 12); // Or Base64.getEncoder().encodeToString(bytes)
   }
 
-  public void startServer() throws IOException {
-    gameServer = HttpServer.create(new InetSocketAddress(host, port), 0);
+  public void startServer() throws IOException, NoSuchAlgorithmException, CertificateException, KeyStoreException, UnrecoverableKeyException, KeyManagementException {
+    // Load the keystore
+        char[] keystorePasswordArray = keystorePassword.toCharArray();
+        KeyStore ks = KeyStore.getInstance("JKS");
+        try (InputStream keystoreStream = new FileInputStream(keystorePath)) {
+            ks.load(keystoreStream, keystorePasswordArray);
+        } catch (IOException e) {
+            throw new IOException("Failed to load keystore: " + e.getMessage(), e);
+        }
 
+        // Set up key manager factory
+        KeyManagerFactory kmf = KeyManagerFactory.getInstance("SunX509");
+        kmf.init(ks, keystorePasswordArray);
+
+
+        // Initialize SSL context
+        SSLContext sslContext = SSLContext.getInstance("TLS");
+        sslContext.init(kmf.getKeyManagers(), null, null);
+
+        // Create HttpsServer
+        gameServer = HttpsServer.create(new InetSocketAddress(host, port), 0);
+        gameServer.setHttpsConfigurator(new HttpsConfigurator(sslContext) {
+          @Override
+          public void configure(HttpsParameters params) {
+              try {
+                  // Initialize the SSL context
+                  SSLContext c = getSSLContext();
+                  SSLEngine engine = c.createSSLEngine();
+                  params.setNeedClientAuth(false);
+                  params.setCipherSuites(engine.getEnabledCipherSuites());
+                  params.setProtocols(engine.getEnabledProtocols());
+
+                  // Get the default SSL parameters
+                  javax.net.ssl.SSLParameters defaultSSLParameters = c.getDefaultSSLParameters();
+                  params.setSSLParameters(defaultSSLParameters);
+              } catch (Exception ex) {
+                  System.err.println("Failed to create HTTPS port: " + ex.getMessage());
+              }
+          }
+      });
+
+        createContexts();
+
+    gameServer.start();
+    System.out.println("Server started on host " + host + " and port " + port);
+  }
+
+  private void createContexts(){
     gameServer.createContext(
       "/",
       exchange -> {
@@ -610,9 +672,6 @@ public class GameServer {
         }
       }
     );
-
-    gameServer.start();
-    System.out.println("Server started on port " + port);
   }
 
   public void stopServer() {

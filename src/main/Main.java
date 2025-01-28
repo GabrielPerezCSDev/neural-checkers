@@ -1,6 +1,11 @@
 package main;
 import java.io.FileInputStream;
 import java.io.IOException;
+import java.security.KeyManagementException;
+import java.security.KeyStoreException;
+import java.security.NoSuchAlgorithmException;
+import java.security.UnrecoverableKeyException;
+import java.security.cert.CertificateException;
 import java.util.Properties;
 import java.util.Scanner;
 import main.java.com.checkers.api.GameServer;
@@ -18,7 +23,9 @@ public class Main {
         // Get PORT from .env, default to 9000 if not found
         int port = Integer.parseInt(props.getProperty("PORT", "9000"));
         String host = props.getProperty("HOST", "localhost");
-        GameServer gameServer = new GameServer(host, port);
+        String keystorePassword = props.getProperty("KEYSTORE_PASSWORD");
+        String keystorePath = props.getProperty("KEYSTORE_PATH", "keystore.jks");
+        GameServer gameServer = new GameServer(host, port, keystorePath, keystorePassword);
 
         // Create a thread for handling user input
         Thread inputThread = new Thread(() -> {
@@ -37,7 +44,13 @@ public class Main {
         inputThread.start();
 
         // Main server logic
-        gameServer.startServer();
+        try {
+            gameServer.startServer();
+        } catch (UnrecoverableKeyException | KeyManagementException | NoSuchAlgorithmException | CertificateException
+                | KeyStoreException | IOException e) {
+            
+            e.printStackTrace();
+        }
         System.out.println("Server is running...");
     }
 }
